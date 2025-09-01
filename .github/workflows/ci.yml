@@ -1,55 +1,36 @@
-name: CI/CD Pipeline
+name: Deploy N8N via SSH
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Instalar Docker Compose
-        run: |
-          docker compose version || (
-            sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-          )
-
-      - name: Estabelecer conexão SSH com VPS
+      - name: Setup SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-      - name: Verificar e fazer deploy na VPS
+      - name: Deploy via SSH
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
             set -e
 
-            PROJECT_DIR="/home/ubuntu/devtools/n8n"
-            REPO_URL="https://github.com/leograva/n8n.git"
+            cd /home/ubuntu/devtools/n8n
 
-            echo "Verificando repositório remoto..."
+            echo "Puxando última imagem n8nio/n8n"
+            docker pull n8nio/n8n
 
-            # Se o repositório ainda não existe, clona via HTTPS (público, sem autenticação)
-            if [ ! -d "$PROJECT_DIR/.git" ]; then
-              echo "Repositório não encontrado. Clonando..."
-              git clone "$REPO_URL" "$PROJECT_DIR"
-            fi
+            echo "Parando e removendo container antigo se existir"
+            docker-compose down || true
 
-            cd "$PROJECT_DIR"
-
-            echo "Atualizando código..."
-            git reset --hard
-            git clean -fd
-            git pull origin main
-
-            echo "Atualizando containers..."
-            docker compose pull
-            docker compose up -d --build
+            echo "Subindo container n8n com docker-compose"
+            docker-compose up -d
           '
