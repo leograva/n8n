@@ -1,4 +1,4 @@
-name: Deploy N8N via SSH
+name: Deploy n8n on VPS
 
 on:
   push:
@@ -10,27 +10,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-      - name: Deploy via SSH
+      - name: Deploy n8n container
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
             set -e
 
             cd /home/ubuntu/devtools/n8n
 
-            echo "Puxando última imagem n8nio/n8n"
+            echo "Removendo container antigo se existir"
+            docker rm -f n8n_n8n_1 || true
+
+            echo "Removendo volume de dados n8n_data (cuidado: perderá dados)"
+            rm -rf ./n8n_data || true
+
+            echo "Criando diretório e ajustando permissões"
+            mkdir -p ./n8n_data
+            sudo chown -R 1000:1000 ./n8n_data
+
+            echo "Puxando última imagem oficial do n8n"
             docker pull n8nio/n8n
 
-            echo "Parando e removendo container antigo se existir"
-            docker-compose down || true
-
-            echo "Subindo container n8n com docker-compose"
-            docker-compose up -d
+            echo "Rodando container n8n"
+            docker run -d --name n8n_n8n_1 -p 5678:5678 \
+              -e N8N_BASIC_AUTH_ACTIVE=true \
+              -e N8N_BASIC_AUTH_USER=admin \
+              -e N8N_BASIC_AUTH_PASSWORD=senha123 \
+              -v $(pwd)/n8n_data:/home/node/.n8n \
+              n8nio/n8n
           '
