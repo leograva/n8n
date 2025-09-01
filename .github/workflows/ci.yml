@@ -32,15 +32,21 @@ jobs:
             set -e
 
             PROJECT_DIR="/home/ubuntu/devtools/n8n"
+            REPO_URL="https://github.com/leograva/n8n.git"
 
-            # Verifica se o diretório existe
+            echo "Verificando repositório remoto..."
+
+            # Se o repositório ainda não existe, clona via HTTPS (público, sem autenticação)
             if [ ! -d "$PROJECT_DIR/.git" ]; then
-              echo "Repositório não encontrado, clonando..."
-              git clone git@github.com:leograva/n8n.git $PROJECT_DIR
+              echo "Repositório não encontrado. Clonando..."
+              git clone "$REPO_URL" "$PROJECT_DIR"
             fi
 
-            cd $PROJECT_DIR
-            echo "Fazendo pull do código..."
+            cd "$PROJECT_DIR"
+
+            echo "Atualizando código..."
+            git reset --hard
+            git clean -fd
             git pull origin main
 
             echo "Atualizando containers..."
